@@ -8,3 +8,33 @@
 .grid-rows-\[auto_1fr\] {
   grid-template-rows: auto 1fr;
 }
+
+@keyframes scanline {
+  0% { transform: translateY(0); opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0.5; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.3; transform: scale(0.98); }
+  50% { opacity: 0.6; transform: scale(1.02); }
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* Custom Scrollbar for the Canvas - extremely subtle */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}

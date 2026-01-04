@@ -70,8 +70,9 @@ const initialState: AppState = {
 };
 
 // Context
-export const AppStateContext = createContext<AppState>(initialState);
-export const AppDispatchContext = createContext<Dispatch<Action>>(() => null);
+// Initialize with undefined to enforce Provider usage
+export const AppStateContext = createContext<AppState | undefined>(undefined);
+export const AppDispatchContext = createContext<Dispatch<Action> | undefined>(undefined);
 
 // Provider Component
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

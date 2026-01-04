@@ -4,6 +4,7 @@ import { useCalendarState } from './hooks';
 import { CalendarCanvas } from './components/CalendarCanvas';
 import { FocusSession } from './components/FocusSession';
 import { CommandPalette } from './components/CommandPalette';
+import { ControlDock } from './components/ControlDock';
 
 const AppContent: React.FC = () => {
   const { view } = useCalendarState();
@@ -11,11 +12,14 @@ const AppContent: React.FC = () => {
   return (
      <div className="h-screen w-screen bg-bg font-sans flex flex-col text-text overflow-hidden relative selection:bg-primary/30">
         
-        {/* The Brain */}
+        {/* The Brain (Overlay) */}
         <CommandPalette />
 
+        {/* The Navigation Anchor */}
+        <ControlDock />
+
         {/* The Viewport */}
-        <main className="flex-1 w-full h-full relative">
+        <main className="flex-1 w-full h-full relative z-0">
             {view === 'canvas' && <CalendarCanvas />}
             {view === 'focus' && <FocusSession />}
         </main>

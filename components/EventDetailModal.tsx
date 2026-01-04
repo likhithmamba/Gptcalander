@@ -18,7 +18,7 @@ export const EventDetailModal: React.FC<Props> = ({ event, onClose }) => {
 
   const startFocus = () => {
       onClose();
-      dispatch({ type: 'SET_APP_VIEW', payload: 'focus' });
+      dispatch({ type: 'SET_VIEW', payload: 'focus' });
   }
 
   const categoryColor = 

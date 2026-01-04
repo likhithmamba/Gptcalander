@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCalendarDispatch } from '../hooks';
-import { X, Play, Pause, RotateCcw } from 'lucide-react';
+import { X, Play, Pause, Square } from 'lucide-react';
 
 export const FocusSession: React.FC = () => {
     const dispatch = useCalendarDispatch();
-    const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
+    const [timeLeft, setTimeLeft] = useState(25 * 60);
     const [isActive, setIsActive] = useState(false);
-    const [mode, setMode] = useState<'work' | 'break'>('work');
+    const [showControls, setShowControls] = useState(true);
 
     useEffect(() => {
         let interval: number;
@@ -16,66 +16,79 @@ export const FocusSession: React.FC = () => {
             }, 1000);
         } else if (timeLeft === 0) {
             setIsActive(false);
-            // Play sound?
         }
         return () => clearInterval(interval);
     }, [isActive, timeLeft]);
 
-    const toggleTimer = () => setIsActive(!isActive);
-    const resetTimer = () => {
-        setIsActive(false);
-        setTimeLeft(mode === 'work' ? 25 * 60 : 5 * 60);
-    };
-    
-    const exitFocus = () => dispatch({ type: 'SET_APP_VIEW', payload: 'dashboard' });
+    // Auto-hide controls for immersion
+    useEffect(() => {
+        let timeout: number;
+        const handleMouseMove = () => {
+            setShowControls(true);
+            clearTimeout(timeout);
+            timeout = window.setTimeout(() => setShowControls(false), 3000);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            clearTimeout(timeout);
+        };
+    }, []);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        return {
+            m: mins.toString().padStart(2, '0'),
+            s: secs.toString().padStart(2, '0')
+        };
     };
 
+    const time = formatTime(timeLeft);
+
     return (
-        <div className="h-full w-full flex flex-col items-center justify-center bg-bg relative animate-fade-in">
-            <button onClick={exitFocus} className="absolute top-6 right-6 p-2 text-mist hover:text-text">
+        <div className="h-full w-full flex flex-col items-center justify-center bg-black relative overflow-hidden animate-fade-in selection:bg-white selection:text-black">
+            
+            {/* Ambient Background Glow */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] bg-white/5 blur-[120px] rounded-full transition-all duration-[3000ms] ${isActive ? 'scale-110 opacity-30' : 'scale-90 opacity-10'}`}></div>
+
+            {/* Exit Button */}
+            <button 
+                onClick={() => dispatch({ type: 'SET_VIEW', payload: 'canvas' })} 
+                className={`absolute top-8 right-8 text-mist hover:text-white transition-opacity duration-500 ${showControls ? 'opacity-100' : 'opacity-0'}`}
+            >
                 <X size={24} />
             </button>
 
-            <div className="mb-8 flex gap-4">
+            {/* The Monolith Timer */}
+            <div className="relative z-10 flex flex-col items-center">
+                <div className="flex items-baseline font-mono font-bold tracking-tighter text-white tabular-nums">
+                    <span className="text-[20vw] leading-none">{time.m}</span>
+                    <span className="text-[5vw] opacity-50 mx-4">:</span>
+                    <span className="text-[20vw] leading-none text-white/90">{time.s}</span>
+                </div>
+                
+                <p className={`mt-8 text-sm font-mono tracking-[0.2em] text-mist transition-opacity duration-1000 ${isActive ? 'opacity-50 animate-pulse' : 'opacity-0'}`}>
+                    FLOW STATE ACTIVE
+                </p>
+            </div>
+
+            {/* Floating Controls */}
+            <div className={`absolute bottom-20 flex gap-8 transition-all duration-500 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                 <button 
-                    onClick={() => { setMode('work'); setTimeLeft(25 * 60); setIsActive(false); }}
-                    className={`px-4 py-1 rounded-full text-sm font-mono transition-all ${mode === 'work' ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'text-mist bg-surface'}`}
+                    onClick={() => setIsActive(!isActive)}
+                    className="group flex items-center justify-center w-20 h-20 rounded-full border border-white/10 hover:border-white/50 hover:bg-white/5 transition-all"
                 >
-                    DEEP WORK
+                    {isActive ? <Pause size={32} className="text-white" /> : <Play size={32} className="text-white ml-1" />}
                 </button>
+                
                 <button 
-                    onClick={() => { setMode('break'); setTimeLeft(5 * 60); setIsActive(false); }}
-                    className={`px-4 py-1 rounded-full text-sm font-mono transition-all ${mode === 'break' ? 'bg-success text-white shadow-lg shadow-success/20' : 'text-mist bg-surface'}`}
+                    onClick={() => { setIsActive(false); setTimeLeft(25*60); }}
+                    className="group flex items-center justify-center w-20 h-20 rounded-full border border-white/10 hover:border-white/50 hover:bg-white/5 transition-all"
                 >
-                    RECHARGE
+                    <Square size={24} className="text-white" />
                 </button>
             </div>
-
-            <div className="relative">
-                {/* Glowing ring */}
-                <div className={`absolute -inset-8 rounded-full blur-3xl opacity-20 ${isActive ? 'bg-secondary animate-pulse-slow' : 'bg-transparent'}`}></div>
-                <h1 className="text-9xl font-mono font-bold text-text tabular-nums tracking-tighter relative z-10">
-                    {formatTime(timeLeft)}
-                </h1>
-            </div>
-
-            <div className="mt-12 flex gap-6">
-                <button onClick={toggleTimer} className="w-16 h-16 rounded-full bg-surfaceHighlight border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 transition-all text-text">
-                    {isActive ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-                </button>
-                <button onClick={resetTimer} className="w-16 h-16 rounded-full bg-surfaceHighlight border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 transition-all text-mist hover:text-text">
-                    <RotateCcw size={24} />
-                </button>
-            </div>
-
-            <p className="mt-12 text-mist text-sm animate-pulse opacity-50">
-                {isActive ? "Stay with the task. The rest can wait." : "Ready to engage?"}
-            </p>
         </div>
     );
 };
