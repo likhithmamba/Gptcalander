@@ -1,23 +1,45 @@
-export type FuzzyTime = 'morning' | 'afternoon' | 'evening' | 'tonight' | 'soon' | 'later';
+export type EventCategory = 'deep_work' | 'meeting' | 'health' | 'logistics' | 'leisure';
 
-export type TimeType = 'none' | 'specific' | 'fuzzy';
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  category: EventCategory;
+  description?: string;
+  // Engine computed properties for rendering
+  _layout?: {
+    top: number;
+    height: number;
+    left: number;
+    width: number;
+  };
+}
+
+export interface Day {
+  date: Date;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+}
+
+export interface Week {
+  days: Day[];
+}
+
+export type CalendarViewType = 'timeline' | 'month' | 'week' | 'day';
 
 export interface Thought {
   id: string;
   content: string;
   createdAt: number;
-  status: 'active' | 'done' | 'archived';
-  timeType: TimeType;
-  specificDate?: string; // ISO string
-  fuzzyLabel?: FuzzyTime;
-  progress: number; // 0-100
-  intensity: 'low' | 'medium' | 'high';
+  status: 'pending' | 'processed';
 }
 
-export type ViewMode = 'flow' | 'pressure' | 'brainstorm' | 'calendar';
+export type AppView = 'canvas' | 'focus';
 
-export interface ViewProps {
-  thoughts: Thought[];
-  onUpdate: (thought: Thought) => void;
-  onDelete: (id: string) => void;
+export interface UIState {
+  isCommandPaletteOpen: boolean;
+  commandMode: 'input' | 'search' | 'action';
+  activeDate: Date;
 }

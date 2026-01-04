@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CALANDER</title>
+    <title>NEXUS OS</title>
+    <link rel="stylesheet" href="./styles/main.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -33,6 +34,10 @@
               'pulse-slow': 'pulseGlow 4s ease-in-out infinite',
               'float': 'float 6s ease-in-out infinite',
               'aurora': 'aurora 20s infinite alternate',
+              'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              'slide-out-left': 'slideOutLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              'slide-in-left': 'slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              'slide-out-right': 'slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             },
             keyframes: {
               fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
@@ -43,7 +48,11 @@
               aurora: {
                 '0%': { backgroundPosition: '0% 50%' },
                 '100%': { backgroundPosition: '100% 50%' },
-              }
+              },
+              slideInRight: { '0%': { transform: 'translateX(20px)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
+              slideOutLeft: { '0%': { transform: 'translateX(0)', opacity: '1' }, '100%': { transform: 'translateX(-20px)', opacity: '0' } },
+              slideInLeft: { '0%': { transform: 'translateX(-20px)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
+              slideOutRight: { '0%': { transform: 'translateX(0)', opacity: '1' }, '100%': { transform: 'translateX(20px)', opacity: '0' } },
             },
             backgroundImage: {
               'aurora-gradient': 'linear-gradient(-45deg, #050505, #1a0b2e, #0f172a, #050505)',
@@ -56,10 +65,9 @@
       body {
         background-color: #030304;
         color: #e0e0e0;
-        overflow-x: hidden;
+        overflow: hidden; /* Prevent scrollbars from the main calendar view */
       }
       
-      /* The Aurora Background */
       .aurora-bg {
         position: fixed;
         top: 0;
@@ -73,35 +81,6 @@
         animation: pulseGlow 10s ease-in-out infinite alternate;
       }
 
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #555; }
-      
-      /* Enhanced Glassmorphism */
-      .glass-panel {
-        background: rgba(18, 18, 20, 0.6);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-      }
-      
-      .glass-card {
-        background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.05);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      }
-
-      .glass-input {
-        background: rgba(10, 10, 12, 0.85);
-        backdrop-filter: blur(24px);
-        border-top: 1px solid rgba(255,255,255,0.1);
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
-      }
-
       ::selection { background: rgba(99, 102, 241, 0.5); color: white; }
     </style>
   <script type="importmap">
@@ -112,7 +91,8 @@
     "recharts": "https://esm.sh/recharts@^3.6.0",
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3"
   }
 }
 </script>

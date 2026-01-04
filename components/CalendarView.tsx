@@ -1,185 +1,179 @@
-import React, { useState, useMemo } from 'react';
-import { ViewProps, Thought } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
+import { useCalendarState, useCalendarDispatch } from '../hooks';
+import { generateMonthView, dateToYYYYMMDD, getMonthName, getYear, areDatesEqual } from '../core';
+import { CalendarEvent, Day, CalendarViewType } from '../types';
 import { ThoughtCard } from './ThoughtCard';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, List, Flame } from 'lucide-react';
+import { InlineInput } from './InputBar';
+import { EventDetailModal } from './EventDetailModal';
+import { ChevronLeft, ChevronRight, Calendar, View, Columns } from 'lucide-react';
 
-export const CalendarView: React.FC<ViewProps> = ({ thoughts, onUpdate, onDelete }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
-  const [viewMode, setViewMode] = useState<'month' | 'schedule'>('month');
+interface Props {
+  thoughtToSchedule: string | null;
+  onScheduled: () => void;
+}
 
-  // --- Calendar Logic ---
-  const { daysInMonth, firstDayOfMonth, year, month } = useMemo(() => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sunday
-    return { daysInMonth, firstDayOfMonth, year, month };
-  }, [currentMonth]);
+export const CalendarCanvas: React.FC<Props> = ({ thoughtToSchedule, onScheduled }) => {
+  const { events, currentDate, calendarView } = useCalendarState();
+  const dispatch = useCalendarDispatch();
+  const [inputState, setInputState] = useState<{ date: Date; position: { top: number; left: number }; prefill?: string } | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [animationClass, setAnimationClass] = useState('animate-fade-in');
 
-  const handlePrevMonth = () => setCurrentMonth(new Date(year, month - 1, 1));
-  const handleNextMonth = () => setCurrentMonth(new Date(year, month + 1, 1));
+  // --- Handle scheduling from Brainstorm view ---
+  useEffect(() => {
+    if (thoughtToSchedule) {
+      setInputState({
+        date: new Date(), 
+        position: { top: window.innerHeight / 2, left: window.innerWidth / 2 },
+        prefill: thoughtToSchedule
+      });
+      onScheduled();
+    }
+  }, [thoughtToSchedule, onScheduled]);
 
-  // --- Data Logic ---
-  const { tasksByDate, activeDates } = useMemo(() => {
-    const map: Record<string, Thought[]> = {};
-    const active = new Set<string>();
-
-    thoughts.forEach(t => {
-      if (t.status !== 'active') return;
-      
-      let key = t.specificDate;
-      if (!key) {
-        const todayKey = new Date().toISOString().split('T')[0];
-        if (!t.fuzzyLabel || ['morning', 'afternoon', 'evening', 'tonight'].includes(t.fuzzyLabel)) {
-           key = todayKey;
-        }
-      }
-
-      if (key) {
-        if (!map[key]) map[key] = [];
-        map[key].push(t);
-        active.add(key);
-      }
+  // --- Data ---
+  const monthView = useMemo(() => generateMonthView(currentDate), [currentDate]);
+  const weekDates = useMemo(() => {
+    const start = new Date(currentDate);
+    start.setDate(start.getDate() - start.getDay());
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date(start);
+      date.setDate(date.getDate() + i);
+      return date;
     });
-    return { tasksByDate: map, activeDates: active };
-  }, [thoughts]);
+  }, [currentDate]);
 
-  // Generate grid cells
-  const gridCells = [];
-  // Padding
-  for (let i = 0; i < firstDayOfMonth; i++) {
-    gridCells.push(<div key={`pad-${i}`} className="h-20 md:h-28 bg-transparent" />);
-  }
-  // Days
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const isSelected = dateKey === selectedDate;
-    const isToday = dateKey === new Date().toISOString().split('T')[0];
-    const hasTasks = activeDates.has(dateKey);
-    const dayTasks = tasksByDate[dateKey] || [];
-    
-    // Intensity Heatmap Logic
-    const highIntensityCount = dayTasks.filter(t => t.intensity === 'high').length;
-    let bgGlow = '';
-    if (highIntensityCount > 1) bgGlow = 'bg-red-900/10 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]';
-    else if (dayTasks.length > 2) bgGlow = 'bg-primary/5 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]';
+  const eventsByDate = useMemo(() => {
+    return events.reduce((acc, event) => {
+      (acc[event.date] = acc[event.date] || []).push(event);
+      acc[event.date].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return acc;
+    }, {} as Record<string, CalendarEvent[]>);
+  }, [events]);
 
-    gridCells.push(
-      <div 
-        key={d}
-        onClick={() => setSelectedDate(dateKey)}
-        className={`
-          relative h-20 md:h-28 border-r border-b border-[#222] p-2 cursor-pointer transition-all duration-300 group
-          ${isSelected ? 'bg-white/5 ring-1 ring-inset ring-white/10 z-10' : 'hover:bg-white/5'}
-          ${isToday ? 'bg-surfaceHighlight' : ''}
-          ${bgGlow}
-        `}
-      >
-        <div className="flex justify-between items-start">
-          <span 
-            className={`
-              text-xs font-medium w-7 h-7 flex items-center justify-center rounded-lg transition-all
-              ${isToday ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-mist group-hover:text-white group-hover:bg-white/10'}
-            `}
-          >
-            {d}
-          </span>
-          {highIntensityCount > 0 && <Flame size={12} className="text-red-500/50 animate-pulse" />}
+  // --- Handlers ---
+  const handleDayClick = (dayDate: Date, e: React.MouseEvent<HTMLDivElement>) => {
+    if (inputState) return;
+    setInputState({
+      date: dayDate,
+      position: { top: e.clientY, left: e.clientX }
+    });
+  };
+
+  const handleNav = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    const increment = direction === 'prev' ? -1 : 1;
+    setAnimationClass(direction === 'prev' ? 'animate-slide-out-right' : 'animate-slide-out-left');
+
+    setTimeout(() => {
+      switch (calendarView) {
+        case 'month': newDate.setMonth(currentDate.getMonth() + increment); break;
+        case 'week': newDate.setDate(currentDate.getDate() + (7 * increment)); break;
+        case 'day': newDate.setDate(currentDate.getDate() + increment); break;
+      }
+      dispatch({ type: 'SET_DATE', payload: newDate });
+      setAnimationClass(direction === 'prev' ? 'animate-slide-in-left' : 'animate-slide-in-right');
+    }, 150);
+  };
+  
+  const setView = (view: CalendarViewType) => dispatch({ type: 'SET_CALENDAR_VIEW', payload: view });
+  const goToToday = () => dispatch({ type: 'SET_DATE', payload: new Date() });
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+
+  // --- Sub-Renders ---
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const renderMonthView = () => (
+    <div className={`flex-1 grid grid-cols-7 grid-rows-[auto_1fr] gap-px bg-surfaceHighlight/50 border border-surfaceHighlight rounded-xl overflow-hidden backdrop-blur-sm ${animationClass}`}>
+      {weekdays.map(day => <div key={day} className="text-center text-[10px] text-mist font-mono uppercase py-3 bg-surface/80">{day}</div>)}
+      {monthView.flatMap(week => week.days).map((day, i) => {
+        const ymd = dateToYYYYMMDD(day.date);
+        const dayEvents = eventsByDate[ymd] || [];
+        return (
+          <div key={ymd} className={`relative flex flex-col p-1 min-h-[80px] bg-surface/40 transition-colors ${!day.isCurrentMonth ? 'opacity-20 grayscale' : 'hover:bg-surface/80 cursor-pointer'}`} onClick={(e) => day.isCurrentMonth && handleDayClick(day.date, e)}>
+            <div className={`text-[10px] mb-1 w-6 h-6 flex items-center justify-center rounded-full ${day.isToday ? 'bg-primary text-white font-bold' : 'text-mist'}`}>
+                {day.date.getDate()}
+            </div>
+            <div className="flex-1 space-y-0.5 overflow-hidden">{dayEvents.map(event => <ThoughtCard key={event.id} event={event} onClick={() => setSelectedEventId(event.id)} />)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderWeekView = () => (
+     <div className={`flex-1 grid grid-cols-7 gap-px bg-surfaceHighlight/50 border border-surfaceHighlight rounded-xl overflow-hidden backdrop-blur-sm ${animationClass}`}>
+        {weekDates.map(date => {
+          const ymd = dateToYYYYMMDD(date);
+          const dayEvents = eventsByDate[ymd] || [];
+          const isToday = areDatesEqual(date, new Date());
+          return (
+             <div key={ymd} className="relative flex flex-col p-2 bg-surface/40 hover:bg-surface/80 cursor-pointer" onClick={(e) => handleDayClick(date, e)}>
+                <div className="text-center text-xs mb-3 border-b border-white/5 pb-2">
+                    <span className="text-mist font-mono uppercase text-[10px] block">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                    <span className={`inline-block mt-1 w-7 h-7 leading-7 rounded-full ${isToday ? 'bg-primary text-white font-bold' : 'text-text'}`}>{date.getDate()}</span>
+                </div>
+                <div className="flex-1 space-y-1 overflow-hidden">{dayEvents.map(event => <ThoughtCard key={event.id} event={event} onClick={() => setSelectedEventId(event.id)} />)}</div>
+            </div>
+          )
+        })}
+     </div>
+  );
+
+  const renderDayView = () => {
+     const ymd = dateToYYYYMMDD(currentDate);
+     const dayEvents = eventsByDate[ymd] || [];
+     return (
+        <div className={`flex-1 bg-surface/40 border border-surfaceHighlight rounded-xl p-6 backdrop-blur-md ${animationClass} flex flex-col`}>
+            <div className="flex items-baseline justify-between mb-8 border-b border-white/10 pb-4">
+                <h3 className="text-3xl font-light">{currentDate.toLocaleDateString(undefined, { weekday: 'long' })}</h3>
+                <span className="text-xl text-mist font-mono">{currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}</span>
+            </div>
+            <div className="space-y-2 flex-1 overflow-y-auto">
+                {dayEvents.length > 0 ? dayEvents.map(event => (
+                    <div key={event.id} className="flex gap-4 group">
+                        <div className="w-16 text-right text-xs text-mist font-mono pt-2">{event.startTime}</div>
+                        <div className="flex-1">
+                            <ThoughtCard event={event} onClick={() => setSelectedEventId(event.id)} />
+                        </div>
+                    </div>
+                )) : (
+                    <div className="h-full flex items-center justify-center text-mist opacity-40">No signals detected.</div>
+                )}
+            </div>
         </div>
-        
-        {/* Task Dots */}
-        <div className="flex flex-wrap gap-1 content-end h-full pb-2 pl-1">
-           {dayTasks.slice(0, 6).map((t, i) => (
-             <div 
-                key={t.id} 
-                className={`w-1.5 h-1.5 rounded-full ${t.intensity === 'high' ? 'bg-red-500' : 'bg-primary'} ${i > 3 ? 'opacity-50' : 'opacity-100'}`}
-             ></div>
-           ))}
-        </div>
-      </div>
-    );
-  }
-
-  const selectedDateObj = new Date(selectedDate);
-  const prettyDate = selectedDateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const selectedTasks = tasksByDate[selectedDate] || [];
+     );
+  };
 
   return (
-    <div className="pb-40 px-2 md:px-4 max-w-5xl mx-auto w-full pt-8">
+    <div className="flex flex-col h-full w-full p-6 text-text animate-fade-in gap-4">
+      {inputState && ReactDOM.createPortal(<InlineInput {...inputState} onClose={() => setInputState(null)} />, document.body)}
+      {selectedEvent && ReactDOM.createPortal(<EventDetailModal event={selectedEvent} onClose={() => setSelectedEventId(null)} />, document.body)}
       
-      {/* Controls */}
-      <div className="flex items-center justify-between mb-8 animate-fade-in">
-        <div className="flex items-center gap-6">
-          <h2 className="text-3xl font-light text-white tracking-tighter">
-            {currentMonth.toLocaleDateString(undefined, { month: 'long' })}
-            <span className="text-mist ml-2 font-thin">{year}</span>
-          </h2>
-          <div className="flex items-center gap-1 bg-surfaceHighlight/50 rounded-full p-1 border border-white/5 backdrop-blur-md">
-             <button onClick={handlePrevMonth} className="p-2 hover:bg-white/10 rounded-full text-mist hover:text-white transition-colors"><ChevronLeft size={18} /></button>
-             <button onClick={handleNextMonth} className="p-2 hover:bg-white/10 rounded-full text-mist hover:text-white transition-colors"><ChevronRight size={18} /></button>
-          </div>
+      {/* Calendar Specific Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-light tracking-tight">{getMonthName(currentDate)} <span className="text-mist opacity-50 font-mono text-lg ml-2">{getYear(currentDate)}</span></h1>
+          <button onClick={goToToday} className="text-[10px] font-mono uppercase px-3 py-1 border border-surfaceHighlight rounded-full text-mist hover:text-text hover:bg-surfaceHighlight transition-colors">Today</button>
         </div>
-
-        <div className="flex gap-1 bg-surfaceHighlight/50 p-1 rounded-xl border border-white/5 backdrop-blur-md">
-           <button 
-             onClick={() => setViewMode('month')} 
-             className={`p-2.5 rounded-lg transition-all ${viewMode === 'month' ? 'bg-white/10 text-white shadow-inner' : 'text-mist hover:text-white'}`}
-           >
-             <CalIcon size={18} />
-           </button>
-           <button 
-             onClick={() => setViewMode('schedule')} 
-             className={`p-2.5 rounded-lg transition-all ${viewMode === 'schedule' ? 'bg-white/10 text-white shadow-inner' : 'text-mist hover:text-white'}`}
-           >
-             <List size={18} />
-           </button>
+        
+        <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 bg-surface/80 p-1 rounded-lg border border-surfaceHighlight">
+            <button onClick={() => setView('month')} className={`p-1.5 rounded-md transition-colors ${calendarView === 'month' ? 'bg-surfaceHighlight text-text shadow-sm' : 'text-mist hover:text-text'}`}><Calendar size={14} /></button>
+            <button onClick={() => setView('week')} className={`p-1.5 rounded-md transition-colors ${calendarView === 'week' ? 'bg-surfaceHighlight text-text shadow-sm' : 'text-mist hover:text-text'}`}><View size={14} /></button>
+            <button onClick={() => setView('day')} className={`p-1.5 rounded-md transition-colors ${calendarView === 'day' ? 'bg-surfaceHighlight text-text shadow-sm' : 'text-mist hover:text-text'}`}><Columns size={14} /></button>
+            </div>
+            <div className="flex items-center gap-1">
+            <button onClick={() => handleNav('prev')} className="p-2 rounded-full text-mist hover:text-text hover:bg-surfaceHighlight transition-colors"><ChevronLeft size={20} /></button>
+            <button onClick={() => handleNav('next')} className="p-2 rounded-full text-mist hover:text-text hover:bg-surfaceHighlight transition-colors"><ChevronRight size={20} /></button>
+            </div>
         </div>
       </div>
-
-      {viewMode === 'month' ? (
-        <div className="animate-fade-in">
-          {/* Weekday Header */}
-          <div className="grid grid-cols-7 mb-4">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="text-center text-[10px] uppercase tracking-widest text-mist/60 font-mono">
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Grid */}
-          <div className="glass-panel grid grid-cols-7 border-t border-l border-[#222] rounded-2xl overflow-hidden mb-12 shadow-2xl">
-            {gridCells}
-          </div>
-        </div>
-      ) : (
-         <div className="text-center py-12 border border-dashed border-white/10 rounded-xl mb-12">
-            <p className="text-mist">Timeline view active</p>
-         </div>
-      )}
-
-      {/* Selected Day Agenda */}
-      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-8 animate-slide-up">
-        <div className="text-right md:border-r border-white/10 md:pr-8 pt-2">
-           <h3 className="text-4xl font-thin text-white mb-1">{selectedDateObj.getDate()}</h3>
-           <p className="text-accent uppercase tracking-widest text-xs font-bold mb-4">{selectedDateObj.toLocaleDateString(undefined, { weekday: 'long' })}</p>
-           {selectedTasks.length === 0 && <span className="text-mist text-sm italic">Free Day</span>}
-        </div>
-
-        <div className="space-y-4">
-           {selectedTasks.length > 0 ? (
-             selectedTasks.map(t => (
-               <ThoughtCard key={t.id} thought={t} onUpdate={onUpdate} onDelete={onDelete} />
-             ))
-           ) : (
-             <div className="h-32 flex items-center justify-start text-mist/40 border-l-2 border-dashed border-white/5 pl-8">
-               <p>No tasks scheduled.</p>
-             </div>
-           )}
-        </div>
-      </div>
-
+      
+      {calendarView === 'month' && renderMonthView()}
+      {calendarView === 'week' && renderWeekView()}
+      {calendarView === 'day' && renderDayView()}
     </div>
   );
 };
